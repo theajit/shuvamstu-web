@@ -1,7 +1,11 @@
 import {createHash} from 'node:crypto';
 import {readdir,readFile} from 'node:fs/promises';
 import {join} from 'node:path';
+import nextEnv from '@next/env';
 import postgres from 'postgres';
+
+const {loadEnvConfig}=nextEnv;
+loadEnvConfig(process.cwd());
 
 const allowUnreachable=process.argv.includes('--allow-unreachable');
 const networkErrors=new Set(['ENOTFOUND','EAI_AGAIN','ECONNREFUSED','ETIMEDOUT','CONNECT_TIMEOUT']);

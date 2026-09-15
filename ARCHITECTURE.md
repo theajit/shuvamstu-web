@@ -59,7 +59,7 @@ Route groups may be introduced incrementally so current URLs remain stable. Serv
 
 ## Authentication and authorization
 
-Use a maintained authentication library/provider rather than extending the current single admin password into customer/Pujari auth. The application stores a local `User` keyed to an external provider identity and uses database-backed sessions/provider sessions. `CUSTOMER`, `PUJARI`, and `ADMIN` authorization is enforced in every server action/handler and data-access method.
+Use passwordless email OTP delivered through Resend. OTP challenges are short-lived, attempt-limited, stored only as keyed hashes, and consumed once. Successful verification creates a revocable opaque database session whose browser cookie is HttpOnly, Secure in production, and SameSite=Lax. `CUSTOMER`, `PUJARI`, and `ADMIN` roles and account status are resolved from PostgreSQL for every protected request; Pujari and Admin accounts are invitation-only. The legacy shared admin password remains only during migration and is removed after the founder account is verified.
 
 Authorization uses a data-access layer returning minimal DTOs. Page-level checks are usability, not the security boundary. Sensitive phone/address fields are selected only for an assigned Pujari or authorized operator. Admin support impersonation is excluded; an explicit audited “view as” capability can be considered later.
 

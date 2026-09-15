@@ -3,8 +3,8 @@
   "scripts": {
     "dev": "next dev",
     "migrate": "node scripts/migrate.mjs",
-    "prebuild": "node scripts/migrate.mjs --allow-unreachable",
     "build": "next build",
+    "migrate:deploy": "node scripts/migrate.mjs",
     "prestart": "npm run migrate",
     "start": "next start",
     "typecheck": "tsc --noEmit",
@@ -15,10 +15,12 @@
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
+    "@next/env": "^16.3.5",
     "next": "16.3.5",
     "postgres": "3.4.9",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "resend": "^6.28.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
