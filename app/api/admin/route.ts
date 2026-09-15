@@ -42,6 +42,8 @@ export async function POST(request:NextRequest){
     if(code==='ENQUIRY_SERVICE_REQUIRED')return NextResponse.json({message:'Choose a service before converting this enquiry.'},{status:400});
     if(code==='ENQUIRY_ALREADY_CONVERTED')return NextResponse.json({message:'This enquiry is linked to a booking and its status cannot be changed.'},{status:409});
     if(code==='ENQUIRY_NOT_FOUND')return NextResponse.json({message:'The enquiry no longer exists.'},{status:404});
-    return NextResponse.json({message:code==='VALIDATION'?'Please check the submitted values.':'The change could not be saved.'},{status:400});
+    if(code==='VALIDATION')return NextResponse.json({message:'Please check the submitted values.'},{status:400});
+    console.error('[admin] Action failed.',error);
+    return NextResponse.json({message:'The change could not be saved.'},{status:500});
   }
 }

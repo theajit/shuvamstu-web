@@ -7,7 +7,9 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  // The workspace can be hosted on a slow Windows volume; one worker avoids
+  // Playwright trace-artifact races while keeping this small suite deterministic.
+  workers: 1,
   reporter: process.env.CI ? [['line'], ['html', {open: 'never'}]] : 'list',
   use: {
     baseURL,
