@@ -22,7 +22,8 @@
       }
     ],
     "incremental": true,
-    "tsBuildInfoFile": ".next/cache/tsconfig.tsbuildinfo"
+    "tsBuildInfoFile": ".next/cache/tsconfig.tsbuildinfo",
+    "allowImportingTsExtensions": true
   },
   "include": [
     "next-env.d.ts",

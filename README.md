@@ -26,3 +26,6 @@ npm run dev
 
 ## Enquiry delivery
 Set `ENQUIRY_WEBHOOK_URL` to an approved HTTPS endpoint that accepts the validated enquiry JSON. Optionally set `ENQUIRY_WEBHOOK_TOKEN` to send a bearer token. Without a configured endpoint, the API returns a service-unavailable response and does not claim that an enquiry was delivered.
+
+## Scheduling
+Scheduling uses PostgreSQL when `DATABASE_URL` is configured. Apply `db/migrations/001_scheduling.sql`, then add real providers, provider/service mappings, availability rules, and exceptions. Until then, availability is explicitly configuration-only and bookings fail closed. See `docs/SCHEDULING.md`.
