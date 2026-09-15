@@ -45,6 +45,34 @@ test('confirmed booking appears on the current weekly calendar', async ({page}) 
   await expect(page.getByText('Calendar Customer')).toBeVisible();
   await expect(page.getByText('Pandit Bharat Bhusan Rath')).toBeVisible();
   await expect(page.getByText('10:30')).toBeVisible();
+  await page.getByRole('button', {name: 'Open booking BKG-PLAYWRIGHT-1 for Calendar Customer'}).click();
+  await expect(page.getByRole('heading', {name: 'Bookings'})).toBeVisible();
+  await expect(page.locator('[data-booking-id="booking-1"]')).toHaveAttribute('open', '');
+  await expect(page.getByRole('heading', {name: 'Customer and location'})).toBeVisible();
+});
+
+test('admin uses provider-centred profile, service, and weekly availability workflows', async ({page}) => {
+  await mockAdminApi(page);
+  await page.goto('/admin');
+
+  await page.getByRole('button', {name: 'Practitioners', exact: true}).click();
+  await expect(page.getByRole('heading', {name: 'Practitioners'})).toBeVisible();
+  await expect(page.getByText('Profile preview', {exact: true})).toBeVisible();
+  await expect(page.getByLabel('Practitioner type')).toHaveValue('PANDIT');
+  await expect(page.getByText('Accepting bookings', {exact: true})).toBeVisible();
+
+  await page.getByRole('button', {name: 'Services', exact: true}).click();
+  await expect(page.getByLabel('Service practitioner')).toHaveValue('provider-pandit-1');
+  await page.getByRole('button', {name: /Puja & Rituals/}).click();
+  await expect(page.getByRole('heading', {name: 'Edit Puja & Rituals'})).toBeVisible();
+  await expect(page.getByLabel('Confirmation method')).toHaveValue('REQUEST');
+
+  await page.getByRole('button', {name: 'Weekly hours', exact: true}).click();
+  await expect(page.getByRole('heading', {name: 'Weekly availability'})).toBeVisible();
+  await expect(page.getByLabel('Availability practitioner')).toHaveValue('provider-pandit-1');
+  await expect(page.getByText('All times use this practitioner’s timezone')).toBeVisible();
+  await page.getByRole('button', {name: '+ Add window'}).first().click();
+  await expect(page.getByLabel('Monday start time')).toHaveValue('09:00');
 });
 
 test('admin selects a live slot and converts an enquiry into a scheduled booking', async ({page}) => {
