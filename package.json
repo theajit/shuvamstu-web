@@ -3,7 +3,7 @@
   "scripts": {
     "dev": "next dev",
     "migrate": "node scripts/migrate.mjs",
-    "prebuild": "npm run migrate",
+    "prebuild": "node scripts/migrate.mjs --allow-unreachable",
     "build": "next build",
     "prestart": "npm run migrate",
     "start": "next start",
