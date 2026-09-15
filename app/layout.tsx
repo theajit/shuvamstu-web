@@ -1,1 +1,0 @@
-import './globals.css'; export const metadata={title:'Shuvamstu | Puja, Rituals & Spiritual Services',description:'Traditional puja, rituals, astrology and spiritual services.'}; export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><body>{children}</body></html>}
