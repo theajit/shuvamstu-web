@@ -39,6 +39,6 @@ Apply `db/migrations/003_practitioner_profiles.sql` to add public practitioner p
 
 ## Automatic database migrations
 
-`npm run build` and `npm start` automatically run every pending SQL file in `db/migrations` when `DATABASE_URL` is configured. Applied filenames and SHA-256 checksums are recorded in `schema_migrations`. A PostgreSQL advisory lock prevents multiple Dokploy instances from migrating concurrently. Existing installations created before the ledger are detected and safely baseline migration 001 before applying the additive migrations.
+`npm run build` and `npm start` automatically run every pending SQL file in `db/migrations` when `DATABASE_URL` is configured. Dokploy image builds may not share the runtime database network; DNS and connection failures during `prebuild` are therefore deferred to the strict `prestart` run. Applied filenames and SHA-256 checksums are recorded in `schema_migrations`. A PostgreSQL advisory lock prevents multiple Dokploy instances from migrating concurrently. Existing installations created before the ledger are detected and safely baseline migration 001 before applying the additive migrations.
 
 Run migrations manually with `npm run migrate`. Set `SKIP_DB_MIGRATIONS=1` only when a build environment must not access the database; startup will also skip migrations while this value remains set. Never edit an applied migration—add a new numbered migration instead.
