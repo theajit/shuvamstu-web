@@ -1,0 +1,1 @@
+import {Suspense} from 'react';import type {Metadata} from 'next';import ManageBooking from './manage-booking';import './manage.css';export const metadata:Metadata={title:'Manage booking',robots:{index:false,follow:false}};export default function Page(){return <Suspense fallback={<p>Loading…</p>}><ManageBooking/></Suspense>}

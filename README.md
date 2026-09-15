@@ -37,6 +37,8 @@ Existing databases should also apply `db/migrations/002_numerology.sql` to enabl
 
 Apply `db/migrations/003_practitioner_profiles.sql` to add public practitioner profiles. Complete the profile in `/admin`, provide a unique lowercase URL slug, then enable “Publish profile publicly.” Published profiles appear in the practitioner directories and XML sitemap.
 
+Migration `004_booking_management.sql` adds secure customer management links, booking event history, admin notes, and meeting links. Set `PUBLIC_SITE_URL` to the public HTTPS origin. Optional `BOOKING_NOTIFICATION_WEBHOOK_URL` and `BOOKING_NOTIFICATION_WEBHOOK_TOKEN` values receive booking-created, status, reschedule, and cancellation events for email, WhatsApp, or SMS automation.
+
 ## Automatic database migrations
 
 `npm run build` and `npm start` automatically run every pending SQL file in `db/migrations` when `DATABASE_URL` is configured. Dokploy image builds may not share the runtime database network; DNS and connection failures during `prebuild` are therefore deferred to the strict `prestart` run. Applied filenames and SHA-256 checksums are recorded in `schema_migrations`. A PostgreSQL advisory lock prevents multiple Dokploy instances from migrating concurrently. Existing installations created before the ledger are detected and safely baseline migration 001 before applying the additive migrations.
