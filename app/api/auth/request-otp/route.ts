@@ -1,0 +1,2 @@
+import {requestLoginOtp} from '../../../../lib/auth';
+export async function POST(request:Request){const body=await request.json().catch(()=>null);try{return Response.json(await requestLoginOtp(typeof body?.email==='string'?body.email:''),{headers:{'Cache-Control':'no-store'}})}catch(error){const code=error instanceof Error?error.message:'';return Response.json({message:code==='RATE_LIMITED'?'Too many codes requested. Try again later.':code==='INVALID_EMAIL'?'Enter a valid email address.':'Unable to send a login code.'},{status:code==='RATE_LIMITED'?429:400})}}
