@@ -32,7 +32,15 @@ async function migrate(){
         if(legacy.count===5){await connection`insert into schema_migrations(filename,checksum) values(${filename},${checksum})`;console.log(`[migrate] Baseline recorded for existing schema: ${filename}`);continue}
         if(legacy.count>0)throw new Error('Partial legacy scheduling schema detected. Restore or repair it before automatic migration.');
       }
-      await connection.begin(async transaction=>{await transaction.unsafe(source);await transaction`insert into schema_migrations(filename,checksum) values(${filename},${checksum})`});
+      await connection.unsafe('begin');
+      try{
+        await connection.unsafe(source);
+        await connection`insert into schema_migrations(filename,checksum) values(${filename},${checksum})`;
+        await connection.unsafe('commit');
+      }catch(error){
+        try{await connection.unsafe('rollback')}catch{}
+        throw error;
+      }
       console.log(`[migrate] Applied: ${filename}`);
     }
     console.log('[migrate] Database schema is current.');
