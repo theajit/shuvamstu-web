@@ -1,5 +1,6 @@
-import {randomUUID} from 'node:crypto';
+import {createHash,randomBytes,randomUUID} from 'node:crypto';
 import postgres from 'postgres';
+import {generateAvailableSlots,generateBookingReference,zonedLocalToInstant,type AvailabilityException,type AvailabilityRule,type ExistingBooking,type LocationMode,type Provider,type ProviderService} from './scheduling';
 
 const connection=process.env.DATABASE_URL;
 const sql=connection?postgres(connection,{max:5,idle_timeout:20,connect_timeout:10}):null;
@@ -13,7 +14,7 @@ export async function getAdminDashboard(){
     database`select provider_id as "providerId",service_slug as "serviceSlug",duration_minutes as "durationMinutes",buffer_before_minutes as "bufferBeforeMinutes",buffer_after_minutes as "bufferAfterMinutes",capacity,booking_mode as "bookingMode",allowed_location_modes as "allowedLocationModes",active from provider_services order by provider_id,service_slug`,
     database`select id,provider_id as "providerId",day_of_week as "dayOfWeek",to_char(local_start_time,'HH24:MI') as "localStartTime",to_char(local_end_time,'HH24:MI') as "localEndTime",timezone,capacity,active from availability_rules order by provider_id,day_of_week,local_start_time`,
     database`select id,provider_id as "providerId",local_date::text as "localDate",type,to_char(local_start_time,'HH24:MI') as "localStartTime",to_char(local_end_time,'HH24:MI') as "localEndTime",capacity from availability_exceptions where local_date>=current_date-interval '30 days' order by local_date desc`,
-    database`select id::text,reference,name,email,service_slug as "serviceSlug",puja_category as "pujaCategory",preferred_date::text as "preferredDate",message,status,created_at::text as "createdAt" from enquiries order by created_at desc limit 500`
+    database`select e.id::text,e.reference,e.name,e.email,e.phone,e.service_slug as "serviceSlug",e.puja_category as "pujaCategory",e.preferred_date::text as "preferredDate",e.message,e.status,e.booking_id::text as "bookingId",b.reference as "bookingReference",e.created_at::text as "createdAt" from enquiries e left join bookings b on b.id=e.booking_id order by e.created_at desc limit 500`
   ]);
   return {bookings,providers,services,rules,exceptions,enquiries};
 }
@@ -50,4 +51,57 @@ export async function rescheduleBooking(input:{id:string;localDate:string;localT
   await transaction`insert into booking_events(booking_id,event_type,actor,details) values(${input.id}::bigint,'RESCHEDULED',${input.actor||'ADMIN'},${transaction.json({localDate:input.localDate,localTime:input.localTime,status:input.status})})`;return updated;
 })}
 export async function getBookingSchedulingConfig(id:string){const [row]=await db()`select b.timezone,ps.duration_minutes as "durationMinutes" from bookings b join provider_services ps on ps.provider_id=b.provider_id and ps.service_slug=b.service_slug where b.id=${id}::bigint`;return row||null}
-export async function updateEnquiryStatus(id:string,status:string){const [row]=await db()`update enquiries set status=${status},updated_at=now() where id=${id}::bigint returning id::text`;if(!row)throw new Error('ENQUIRY_NOT_FOUND')}
+export async function updateEnquiryStatus(id:string,status:string){const database=db();const [row]=await database`update enquiries set status=${status},updated_at=now() where id=${id}::bigint and booking_id is null returning id::text`;if(row)return;const [existing]=await database`select booking_id::text as "bookingId" from enquiries where id=${id}::bigint`;if(existing?.bookingId)throw new Error('ENQUIRY_ALREADY_CONVERTED');throw new Error('ENQUIRY_NOT_FOUND')}
+
+export type ConvertEnquiryInput={enquiryId:string;providerId:string;localDate:string;localTime:string;locationMode:LocationMode;venue:string};
+export type ConvertedEnquiryBooking={id:string;reference:string;status:string;serviceSlug:string;providerId:string;providerName:string;customerEmail:string|null;customerPhone:string;localDate:string;localTime:string;requestedStart:string;requestedEnd:string;manageToken?:string;created:boolean};
+
+/** Convert an enquiry into exactly one confirmed booking. Enquiry and provider
+ * locks make retries and concurrent admin submissions safe. */
+export async function convertEnquiryToBooking(input:ConvertEnquiryInput):Promise<ConvertedEnquiryBooking>{
+  return db().begin(async transaction=>{
+    const [enquiry]=await transaction`select id::text,reference,name,email,phone,service_slug as "serviceSlug",puja_category as "pujaCategory",message,booking_id::text as "bookingId" from enquiries where id=${input.enquiryId}::bigint for update`;
+    if(!enquiry)throw new Error('ENQUIRY_NOT_FOUND');
+    if(enquiry.bookingId){
+      const [existing]=await transaction`select b.id::text,b.reference,b.status,b.service_slug as "serviceSlug",b.provider_id as "providerId",p.name as "providerName",b.customer_email as "customerEmail",b.customer_phone as "customerPhone",b.local_date::text as "localDate",to_char(b.local_time,'HH24:MI') as "localTime",b.requested_start::text as "requestedStart",b.requested_end::text as "requestedEnd" from bookings b join providers p on p.id=b.provider_id where b.id=${enquiry.bookingId}::bigint`;
+      if(!existing)throw new Error('BOOKING_NOT_FOUND');
+      return {...existing,created:false} as ConvertedEnquiryBooking;
+    }
+    if(!enquiry.serviceSlug)throw new Error('ENQUIRY_SERVICE_REQUIRED');
+    if(!enquiry.phone?.trim())throw new Error('ENQUIRY_PHONE_REQUIRED');
+
+    await transaction`select pg_advisory_xact_lock(hashtextextended(${input.providerId},0))`;
+    const [configuration]=await transaction`select p.id,p.name,p.type,p.active,p.timezone,p.created_at as "createdAt",p.updated_at as "updatedAt",ps.provider_id as "providerId",ps.service_slug as "serviceSlug",ps.duration_minutes as "durationMinutes",ps.buffer_before_minutes as "bufferBeforeMinutes",ps.buffer_after_minutes as "bufferAfterMinutes",ps.capacity,ps.booking_mode as "bookingMode",ps.allowed_location_modes as "allowedLocationModes",ps.active as "serviceActive" from providers p join provider_services ps on ps.provider_id=p.id where p.id=${input.providerId} and ps.service_slug=${enquiry.serviceSlug} and p.active and ps.active for update`;
+    if(!configuration)throw new Error('PROVIDER_NOT_ELIGIBLE');
+    if(!configuration.allowedLocationModes.includes(input.locationMode))throw new Error('LOCATION_NOT_ALLOWED');
+
+    const [rules,exceptions,bookings]=await Promise.all([
+      transaction<AvailabilityRule[]>`select id,provider_id as "providerId",day_of_week as "dayOfWeek",to_char(local_start_time,'HH24:MI') as "localStartTime",to_char(local_end_time,'HH24:MI') as "localEndTime",timezone,capacity,active from availability_rules where provider_id=${input.providerId} and active`,
+      transaction<AvailabilityException[]>`select id,provider_id as "providerId",local_date::text as "localDate",type,to_char(local_start_time,'HH24:MI') as "localStartTime",to_char(local_end_time,'HH24:MI') as "localEndTime",capacity from availability_exceptions where provider_id=${input.providerId}`,
+      transaction<ExistingBooking[]>`select provider_id as "providerId",requested_start::text as "requestedStart",requested_end::text as "requestedEnd",status,capacity_used as "capacityUsed",buffer_before_minutes as "bufferBeforeMinutes",buffer_after_minutes as "bufferAfterMinutes" from bookings where provider_id=${input.providerId} and status in ('REQUESTED','PENDING_CONFIRMATION','CONFIRMED','IN_PROGRESS')`
+    ]);
+    const provider:Provider={id:configuration.id,name:configuration.name,type:configuration.type,active:configuration.active,timezone:configuration.timezone,createdAt:configuration.createdAt,updatedAt:configuration.updatedAt};
+    const providerService:ProviderService={providerId:configuration.providerId,serviceSlug:configuration.serviceSlug,providerType:configuration.type,durationMinutes:configuration.durationMinutes,bufferBeforeMinutes:configuration.bufferBeforeMinutes,bufferAfterMinutes:configuration.bufferAfterMinutes,capacity:configuration.capacity,bookingMode:configuration.bookingMode,allowedLocationModes:configuration.allowedLocationModes,active:configuration.serviceActive};
+    const requestedStart=zonedLocalToInstant(input.localDate,input.localTime,provider.timezone);
+    const requestedEnd=new Date(requestedStart.getTime()+providerService.durationMinutes*60_000);
+    const slots=generateAvailableSlots({provider,service:providerService,date:input.localDate,locationMode:input.locationMode,rules,exceptions,existingBookings:bookings});
+    if(!slots.some(slot=>slot.start===requestedStart.toISOString()))throw new Error('SLOT_UNAVAILABLE');
+
+    const occupiedStart=new Date(requestedStart.getTime()-providerService.bufferBeforeMinutes*60_000).toISOString();
+    const occupiedEnd=new Date(requestedEnd.getTime()+providerService.bufferAfterMinutes*60_000).toISOString();
+    const [usage]=await transaction<Array<{maximum:number}>>`with overlaps as (select occupied_start,occupied_end,capacity_used from bookings where provider_id=${input.providerId} and status in ('REQUESTED','PENDING_CONFIRMATION','CONFIRMED','IN_PROGRESS') and tstzrange(occupied_start,occupied_end,'[)') && tstzrange(${occupiedStart}::timestamptz,${occupiedEnd}::timestamptz,'[)') for update),points as (select ${occupiedStart}::timestamptz point union select occupied_start from overlaps),loads as (select point,coalesce((select sum(capacity_used) from overlaps where occupied_start<=point and occupied_end>point),0)::int used from points) select coalesce(max(used),0)::int maximum from loads`;
+    if((usage?.maximum??0)+1>providerService.capacity)throw new Error('CAPACITY_UNAVAILABLE');
+
+    for(let attempt=0;attempt<5;attempt+=1){
+      const reference=generateBookingReference(),manageToken=randomBytes(32).toString('base64url'),manageTokenHash=createHash('sha256').update(manageToken).digest('hex');
+      const customerMessage=[enquiry.pujaCategory?`Puja: ${enquiry.pujaCategory}`:'',enquiry.message||''].filter(Boolean).join('\n');
+      const [stored]=await transaction`insert into bookings(reference,provider_id,service_slug,customer_name,customer_email,customer_phone,location_mode,venue,timezone,local_date,local_time,requested_start,requested_end,occupied_start,occupied_end,status,customer_message,capacity_used,buffer_before_minutes,buffer_after_minutes,manage_token_hash) values(${reference},${input.providerId},${enquiry.serviceSlug},${enquiry.name},${enquiry.email||null},${enquiry.phone},${input.locationMode},${input.venue||null},${provider.timezone},${input.localDate},${input.localTime},${requestedStart.toISOString()},${requestedEnd.toISOString()},${occupiedStart},${occupiedEnd},'CONFIRMED',${customerMessage||null},1,${providerService.bufferBeforeMinutes},${providerService.bufferAfterMinutes},${manageTokenHash}) on conflict do nothing returning id::text,reference,status,service_slug as "serviceSlug",provider_id as "providerId",customer_email as "customerEmail",customer_phone as "customerPhone",local_date::text as "localDate",to_char(local_time,'HH24:MI') as "localTime",requested_start::text as "requestedStart",requested_end::text as "requestedEnd"`;
+      if(!stored)continue;
+      await transaction`update enquiries set status='CONVERTED',booking_id=${stored.id}::bigint,updated_at=now() where id=${input.enquiryId}::bigint`;
+      const eventDetails={enquiryId:input.enquiryId,enquiryReference:enquiry.reference,status:'CONFIRMED'};
+      await transaction`insert into booking_events(booking_id,event_type,actor,details) values(${stored.id}::bigint,'CREATED','ADMIN',${transaction.json(eventDetails)}),(${stored.id}::bigint,'ENQUIRY_CONVERTED','ADMIN',${transaction.json(eventDetails)})`;
+      return {...stored,providerName:provider.name,manageToken,created:true} as ConvertedEnquiryBooking;
+    }
+    throw new Error('REFERENCE_GENERATION_FAILED');
+  });
+}
