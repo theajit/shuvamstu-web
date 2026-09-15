@@ -1,5 +1,6 @@
 import {services} from '../../data/services';
 import {pujaCategories} from '../../data/puja-categories';
+import {enquiryPersistenceConfigured,storeEnquiry} from '../../../lib/enquiry-repository';
 
 const MAX_PAYLOAD_BYTES = 16_384;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -74,17 +75,17 @@ export async function POST(request: Request) {
   const enquiry = validate(parsed);
   if (!enquiry) return json('Please check the enquiry details and try again.', 400);
 
+  let stored:Awaited<ReturnType<typeof storeEnquiry>>|null=null;
+  if(enquiryPersistenceConfigured){try{stored=await storeEnquiry(enquiry)}catch(error){console.error('[enquiry] Database persistence failed.',error)}}
   const webhookUrl = process.env.ENQUIRY_WEBHOOK_URL;
-  if (!webhookUrl) return json('Enquiry submission is temporarily unavailable. Please try again later.', 503);
-
-  try {
+  let delivered=false;
+  if(webhookUrl)try {
     const headers: Record<string, string> = {'Content-Type': 'application/json'};
     if (process.env.ENQUIRY_WEBHOOK_TOKEN) headers.Authorization = `Bearer ${process.env.ENQUIRY_WEBHOOK_TOKEN}`;
-    const response = await fetch(webhookUrl, {method: 'POST', headers, body: JSON.stringify(enquiry), cache: 'no-store', signal: AbortSignal.timeout(10_000)});
-    if (!response.ok) return json('We could not submit your enquiry. Please try again later.', 502);
-  } catch {
-    return json('We could not submit your enquiry. Please try again later.', 502);
-  }
+    const response = await fetch(webhookUrl, {method: 'POST', headers, body: JSON.stringify({...enquiry,reference:stored?.reference}), cache: 'no-store', signal: AbortSignal.timeout(10_000)});
+    delivered=response.ok;if(!response.ok)console.error(`[enquiry] Webhook returned ${response.status}.`);
+  } catch(error) {console.error('[enquiry] Webhook delivery failed.',error)}
 
-  return json('Thank you. Your enquiry has been received.', 201);
+  if(!stored&&!delivered)return json('Enquiry submission is temporarily unavailable. Please try again later.',503);
+  return Response.json({message:'Thank you. Your enquiry has been received.',reference:stored?.reference},{status:201,headers:{'Cache-Control':'no-store'}});
 }

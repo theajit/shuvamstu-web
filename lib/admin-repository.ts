@@ -7,14 +7,15 @@ function db(){if(!sql)throw new Error('DATABASE_NOT_CONFIGURED');return sql}
 
 export async function getAdminDashboard(){
   const database=db();
-  const [bookings,providers,services,rules,exceptions]=await Promise.all([
+  const [bookings,providers,services,rules,exceptions,enquiries]=await Promise.all([
     database`select b.id::text,b.reference,b.provider_id as "providerId",p.name as "providerName",b.service_slug as "serviceSlug",b.customer_name as "customerName",b.customer_email as "customerEmail",b.customer_phone as "customerPhone",b.location_mode as "locationMode",b.venue,b.timezone,b.local_date::text as "localDate",to_char(b.local_time,'HH24:MI') as "localTime",b.requested_start::text as "requestedStart",b.requested_end::text as "requestedEnd",b.status,b.customer_message as "customerMessage",b.admin_notes as "adminNotes",b.meeting_url as "meetingUrl",b.created_at::text as "createdAt",coalesce((select json_agg(json_build_object('type',e.event_type,'actor',e.actor,'details',e.details,'createdAt',e.created_at) order by e.created_at desc) from booking_events e where e.booking_id=b.id),'[]') as events from bookings b join providers p on p.id=b.provider_id order by b.local_date desc,b.local_time desc limit 500`,
     database`select id,name,type,active,timezone,slug,bio,experience_years as "experienceYears",city,languages,specialties,qualifications,photo_url as "photoUrl",published,created_at::text as "createdAt" from providers order by active desc,name`,
     database`select provider_id as "providerId",service_slug as "serviceSlug",duration_minutes as "durationMinutes",buffer_before_minutes as "bufferBeforeMinutes",buffer_after_minutes as "bufferAfterMinutes",capacity,booking_mode as "bookingMode",allowed_location_modes as "allowedLocationModes",active from provider_services order by provider_id,service_slug`,
     database`select id,provider_id as "providerId",day_of_week as "dayOfWeek",to_char(local_start_time,'HH24:MI') as "localStartTime",to_char(local_end_time,'HH24:MI') as "localEndTime",timezone,capacity,active from availability_rules order by provider_id,day_of_week,local_start_time`,
-    database`select id,provider_id as "providerId",local_date::text as "localDate",type,to_char(local_start_time,'HH24:MI') as "localStartTime",to_char(local_end_time,'HH24:MI') as "localEndTime",capacity from availability_exceptions where local_date>=current_date-interval '30 days' order by local_date desc`
+    database`select id,provider_id as "providerId",local_date::text as "localDate",type,to_char(local_start_time,'HH24:MI') as "localStartTime",to_char(local_end_time,'HH24:MI') as "localEndTime",capacity from availability_exceptions where local_date>=current_date-interval '30 days' order by local_date desc`,
+    database`select id::text,reference,name,email,service_slug as "serviceSlug",puja_category as "pujaCategory",preferred_date::text as "preferredDate",message,status,created_at::text as "createdAt" from enquiries order by created_at desc limit 500`
   ]);
-  return {bookings,providers,services,rules,exceptions};
+  return {bookings,providers,services,rules,exceptions,enquiries};
 }
 
 type ProviderInput={id?:string;name:string;type:'PANDIT'|'ASTROLOGER'|'NUMEROLOGIST';timezone:string;active:boolean;slug:string;bio:string;experienceYears:number|null;city:string;languages:string[];specialties:string[];qualifications:string;photoUrl:string;published:boolean};
@@ -49,3 +50,4 @@ export async function rescheduleBooking(input:{id:string;localDate:string;localT
   await transaction`insert into booking_events(booking_id,event_type,actor,details) values(${input.id}::bigint,'RESCHEDULED',${input.actor||'ADMIN'},${transaction.json({localDate:input.localDate,localTime:input.localTime,status:input.status})})`;return updated;
 })}
 export async function getBookingSchedulingConfig(id:string){const [row]=await db()`select b.timezone,ps.duration_minutes as "durationMinutes" from bookings b join provider_services ps on ps.provider_id=b.provider_id and ps.service_slug=b.service_slug where b.id=${id}::bigint`;return row||null}
+export async function updateEnquiryStatus(id:string,status:string){const [row]=await db()`update enquiries set status=${status},updated_at=now() where id=${id}::bigint returning id::text`;if(!row)throw new Error('ENQUIRY_NOT_FOUND')}
