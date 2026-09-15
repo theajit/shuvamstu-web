@@ -1,6 +1,6 @@
 import {createHash,randomBytes,randomUUID} from 'node:crypto';
 import postgres from 'postgres';
-import {generateAvailableSlots,generateBookingReference,zonedLocalToInstant,type AvailabilityException,type AvailabilityRule,type ExistingBooking,type LocationMode,type Provider,type ProviderService} from './scheduling';
+import {generateAvailableSlots,generateBookingReference,type AvailabilityException,type AvailabilityRule,type ExistingBooking,type LocationMode,type Provider,type ProviderService} from './scheduling';
 
 const connection=process.env.DATABASE_URL;
 const sql=connection?postgres(connection,{max:5,idle_timeout:20,connect_timeout:10}):null;
@@ -82,10 +82,11 @@ export async function convertEnquiryToBooking(input:ConvertEnquiryInput):Promise
     ]);
     const provider:Provider={id:configuration.id,name:configuration.name,type:configuration.type,active:configuration.active,timezone:configuration.timezone,createdAt:configuration.createdAt,updatedAt:configuration.updatedAt};
     const providerService:ProviderService={providerId:configuration.providerId,serviceSlug:configuration.serviceSlug,providerType:configuration.type,durationMinutes:configuration.durationMinutes,bufferBeforeMinutes:configuration.bufferBeforeMinutes,bufferAfterMinutes:configuration.bufferAfterMinutes,capacity:configuration.capacity,bookingMode:configuration.bookingMode,allowedLocationModes:configuration.allowedLocationModes,active:configuration.serviceActive};
-    const requestedStart=zonedLocalToInstant(input.localDate,input.localTime,provider.timezone);
-    const requestedEnd=new Date(requestedStart.getTime()+providerService.durationMinutes*60_000);
     const slots=generateAvailableSlots({provider,service:providerService,date:input.localDate,locationMode:input.locationMode,rules,exceptions,existingBookings:bookings});
-    if(!slots.some(slot=>slot.start===requestedStart.toISOString()))throw new Error('SLOT_UNAVAILABLE');
+    const selectedSlot=slots.find(slot=>slot.localDate===input.localDate&&slot.localStartTime===input.localTime&&Date.parse(slot.start)>Date.now());
+    if(!selectedSlot)throw new Error('SLOT_UNAVAILABLE');
+    const requestedStart=new Date(selectedSlot.start);
+    const requestedEnd=new Date(selectedSlot.end);
 
     const occupiedStart=new Date(requestedStart.getTime()-providerService.bufferBeforeMinutes*60_000).toISOString();
     const occupiedEnd=new Date(requestedEnd.getTime()+providerService.bufferAfterMinutes*60_000).toISOString();
@@ -95,7 +96,7 @@ export async function convertEnquiryToBooking(input:ConvertEnquiryInput):Promise
     for(let attempt=0;attempt<5;attempt+=1){
       const reference=generateBookingReference(),manageToken=randomBytes(32).toString('base64url'),manageTokenHash=createHash('sha256').update(manageToken).digest('hex');
       const customerMessage=[enquiry.pujaCategory?`Puja: ${enquiry.pujaCategory}`:'',enquiry.message||''].filter(Boolean).join('\n');
-      const [stored]=await transaction`insert into bookings(reference,provider_id,service_slug,customer_name,customer_email,customer_phone,location_mode,venue,timezone,local_date,local_time,requested_start,requested_end,occupied_start,occupied_end,status,customer_message,capacity_used,buffer_before_minutes,buffer_after_minutes,manage_token_hash) values(${reference},${input.providerId},${enquiry.serviceSlug},${enquiry.name},${enquiry.email||null},${enquiry.phone},${input.locationMode},${input.venue||null},${provider.timezone},${input.localDate},${input.localTime},${requestedStart.toISOString()},${requestedEnd.toISOString()},${occupiedStart},${occupiedEnd},'CONFIRMED',${customerMessage||null},1,${providerService.bufferBeforeMinutes},${providerService.bufferAfterMinutes},${manageTokenHash}) on conflict do nothing returning id::text,reference,status,service_slug as "serviceSlug",provider_id as "providerId",customer_email as "customerEmail",customer_phone as "customerPhone",local_date::text as "localDate",to_char(local_time,'HH24:MI') as "localTime",requested_start::text as "requestedStart",requested_end::text as "requestedEnd"`;
+      const [stored]=await transaction`insert into bookings(reference,provider_id,service_slug,customer_name,customer_email,customer_phone,location_mode,venue,timezone,local_date,local_time,requested_start,requested_end,occupied_start,occupied_end,status,customer_message,capacity_used,buffer_before_minutes,buffer_after_minutes,manage_token_hash) values(${reference},${input.providerId},${enquiry.serviceSlug},${enquiry.name},${enquiry.email||null},${enquiry.phone},${input.locationMode},${input.venue||null},${selectedSlot.timezone},${input.localDate},${input.localTime},${requestedStart.toISOString()},${requestedEnd.toISOString()},${occupiedStart},${occupiedEnd},'CONFIRMED',${customerMessage||null},1,${providerService.bufferBeforeMinutes},${providerService.bufferAfterMinutes},${manageTokenHash}) on conflict do nothing returning id::text,reference,status,service_slug as "serviceSlug",provider_id as "providerId",customer_email as "customerEmail",customer_phone as "customerPhone",local_date::text as "localDate",to_char(local_time,'HH24:MI') as "localTime",requested_start::text as "requestedStart",requested_end::text as "requestedEnd"`;
       if(!stored)continue;
       await transaction`update enquiries set status='CONVERTED',booking_id=${stored.id}::bigint,updated_at=now() where id=${input.enquiryId}::bigint`;
       const eventDetails={enquiryId:input.enquiryId,enquiryReference:enquiry.reference,status:'CONFIRMED'};
