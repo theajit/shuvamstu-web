@@ -2,7 +2,10 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
+    "migrate": "node scripts/migrate.mjs",
+    "prebuild": "npm run migrate",
     "build": "next build",
+    "prestart": "npm run migrate",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test:scheduling": "node --experimental-strip-types tests/scheduling.test.ts"
