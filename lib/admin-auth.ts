@@ -35,5 +35,12 @@ export function authorizedRequest(request: NextRequest) {
 export function sameOrigin(request: NextRequest) {
   const origin = request.headers.get('origin');
   if (!origin) return false;
-  try { return new URL(origin).host === request.nextUrl.host; } catch { return false; }
+  try {
+    const originHost = new URL(origin).host.toLowerCase();
+    const forwardedHost = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim().toLowerCase();
+    const requestHost = request.headers.get('host')?.trim().toLowerCase();
+    const configuredOrigin = process.env.ADMIN_ALLOWED_ORIGIN;
+    const configuredHost = configuredOrigin ? new URL(configuredOrigin).host.toLowerCase() : undefined;
+    return [forwardedHost, requestHost, request.nextUrl.host.toLowerCase(), configuredHost].some(host => host === originHost);
+  } catch { return false; }
 }

@@ -31,3 +31,8 @@ Set `ENQUIRY_WEBHOOK_URL` to an approved HTTPS endpoint that accepts the validat
 Scheduling uses PostgreSQL when `DATABASE_URL` is configured. Apply `db/migrations/001_scheduling.sql`, then add real providers, provider/service mappings, availability rules, and exceptions. Until then, availability is explicitly configuration-only and bookings fail closed. See `docs/SCHEDULING.md`.
 
 Scheduling administration is available at `/admin`. In Dokploy, set `DATABASE_URL`, `ADMIN_PASSWORD`, and a random `ADMIN_SESSION_SECRET` containing at least 32 characters, apply the migration, redeploy, and sign in. Use HTTPS in production.
+If Dokploy uses an internal proxy hostname, also set `ADMIN_ALLOWED_ORIGIN` to the public origin, for example `https://apps.shuvamstu.com` (no trailing slash).
+
+Existing databases should also apply `db/migrations/002_numerology.sql` to enable Numerologist providers and Numerology scheduling.
+
+Apply `db/migrations/003_practitioner_profiles.sql` to add public practitioner profiles. Complete the profile in `/admin`, provide a unique lowercase URL slug, then enable “Publish profile publicly.” Published profiles appear in the practitioner directories and XML sitemap.
