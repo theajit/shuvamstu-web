@@ -1,1 +1,0 @@
-import {Suspense} from 'react'; import Enquiry from './enquiry'; export const metadata={title:'Enquiry',description:'Send an enquiry to Shuvamstu about puja, ceremonies, astrology and devotional services.'}; export default function Page(){return <Suspense fallback={null}><Enquiry/></Suspense>}
