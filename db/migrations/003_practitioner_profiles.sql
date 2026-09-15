@@ -1,0 +1,10 @@
+alter table providers add column if not exists slug text;
+alter table providers add column if not exists bio text;
+alter table providers add column if not exists experience_years integer check(experience_years is null or experience_years between 0 and 100);
+alter table providers add column if not exists city text;
+alter table providers add column if not exists languages text[] not null default '{}';
+alter table providers add column if not exists specialties text[] not null default '{}';
+alter table providers add column if not exists qualifications text;
+alter table providers add column if not exists photo_url text;
+alter table providers add column if not exists published boolean not null default false;
+create unique index if not exists providers_slug_unique_idx on providers(slug) where slug is not null;

@@ -1,4 +1,4 @@
-export const PROVIDER_TYPES = ['PANDIT', 'ASTROLOGER'] as const;
+export const PROVIDER_TYPES = ['PANDIT', 'ASTROLOGER', 'NUMEROLOGIST'] as const;
 export const BOOKING_MODES = ['INSTANT', 'REQUEST'] as const;
 export const LOCATION_MODES = ['ONLINE', 'CUSTOMER_LOCATION', 'TEMPLE', 'OFFICE'] as const;
 export const BOOKING_STATUSES = ['REQUESTED', 'PENDING_CONFIRMATION', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'REJECTED'] as const;
@@ -39,6 +39,7 @@ export const DEFAULT_OPERATIONAL_TIMEZONE = 'Asia/Kolkata';
 
 export const schedulingServices: readonly SchedulingService[] = [
   {serviceSlug:'astrology',providerType:'ASTROLOGER',durationMinutes:30,bufferBeforeMinutes:0,bufferAfterMinutes:10,capacity:1,bookingMode:'INSTANT',allowedLocationModes:['ONLINE','OFFICE']},
+  {serviceSlug:'numerology',providerType:'NUMEROLOGIST',durationMinutes:30,bufferBeforeMinutes:0,bufferAfterMinutes:10,capacity:1,bookingMode:'REQUEST',allowedLocationModes:['ONLINE','OFFICE']},
   {serviceSlug:'online-puja',providerType:'PANDIT',durationMinutes:60,bufferBeforeMinutes:15,bufferAfterMinutes:15,capacity:1,bookingMode:'REQUEST',allowedLocationModes:['ONLINE']},
   {serviceSlug:'puja-rituals',providerType:'PANDIT',durationMinutes:120,bufferBeforeMinutes:30,bufferAfterMinutes:30,capacity:1,bookingMode:'REQUEST',allowedLocationModes:['CUSTOMER_LOCATION','TEMPLE','ONLINE']},
   {serviceSlug:'bratopanayan',providerType:'PANDIT',durationMinutes:180,bufferBeforeMinutes:30,bufferAfterMinutes:30,capacity:1,bookingMode:'REQUEST',allowedLocationModes:['CUSTOMER_LOCATION','TEMPLE']},

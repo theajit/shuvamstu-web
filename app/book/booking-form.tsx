@@ -8,7 +8,7 @@ import styles from './booking.module.css';
 type Slot={start:string;localStartTime:string;timezone:string;provider:{id:string;name:string}};
 type Provider={id:string;name:string;timezone:string};
 type Availability={live:boolean;slots:Slot[];providers?:Provider[];message?:string};
-const names:Record<string,string>={'astrology':'Astrology consultation','online-puja':'Online Puja','puja-rituals':'Puja & Rituals','marriage':'Marriage','bratopanayan':'Bratopanayan'};
+const names:Record<string,string>={'astrology':'Astrology consultation','numerology':'Numerology consultation','online-puja':'Online Puja','puja-rituals':'Puja & Rituals','marriage':'Marriage','bratopanayan':'Bratopanayan'};
 const locationNames:Record<string,string>={ONLINE:'Online',OFFICE:'Office',CUSTOMER_LOCATION:'Customer location',TEMPLE:'Temple'};
 
 export default function BookingForm(){
