@@ -30,13 +30,13 @@ export async function POST(request: Request) {
   const localTime = text(body.time, 5, true);
   const timezone = text(body.timezone, 100, true);
   const customerName = text(body.customerName, 100, true);
-  const customerEmail = text(body.customerEmail, 254, true)?.toLowerCase() ?? null;
+  const customerEmail = text(body.customerEmail, 254)?.toLowerCase() ?? null;
   const customerPhone = text(body.customerPhone, 30);
   const venue = text(body.venue, 500);
   const customerMessage = text(body.customerMessage, 2000);
   const service = serviceSlug ? schedulingServiceBySlug(serviceSlug) : undefined;
 
-  if (!service || !locationMode || !LOCATION_MODES.includes(locationMode as LocationMode) || !service.allowedLocationModes.includes(locationMode as LocationMode) || !localDate || !isValidLocalDate(localDate) || !localTime || !/^\d{2}:\d{2}$/.test(localTime) || !timezone || !customerName || !customerEmail || !EMAIL_PATTERN.test(customerEmail) || providerId === null || customerPhone === null || venue === null || customerMessage === null) return Response.json({message:'Please check the booking details.'},{status:400});
+  if (!service || !locationMode || !LOCATION_MODES.includes(locationMode as LocationMode) || !service.allowedLocationModes.includes(locationMode as LocationMode) || !localDate || !isValidLocalDate(localDate) || !localTime || !/^\d{2}:\d{2}$/.test(localTime) || !timezone || !customerName || customerEmail === null || (customerEmail && !EMAIL_PATTERN.test(customerEmail)) || !customerPhone || !/^\+?[0-9][0-9 ()-]{7,28}[0-9]$/.test(customerPhone) || venue === null || customerMessage === null) return Response.json({message:'Please check the booking details.'},{status:400});
   if (service.bookingMode === 'INSTANT' && !providerId) return Response.json({message:'Choose an available provider and time before booking.'},{status:400});
 
   if (!schedulingRepository.configured) return Response.json({message:'Booking is not yet available. Your request has not been stored or confirmed.',persistenceConfigured:false},{status:503,headers:{'Cache-Control':'no-store'}});

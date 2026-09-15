@@ -8,7 +8,7 @@ const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const serviceSlugs = new Set(services.map(({slug}) => slug));
 const validPujaCategories = new Set<string>(pujaCategories);
 
-type Enquiry = {name: string; email: string; service: string; pujaCategory: string; preferredDate: string; message: string};
+type Enquiry = {name: string; phone: string; email: string; service: string; pujaCategory: string; preferredDate: string; message: string};
 
 function json(message: string, status: number) {
   return Response.json({message}, {status, headers: {'Cache-Control': 'no-store'}});
@@ -37,18 +37,19 @@ function validate(value: unknown): Enquiry | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const body = value as Record<string, unknown>;
   const name = cleanSingleLine(body.name, 100);
+  const phone = cleanSingleLine(body.phone, 30);
   const email = cleanSingleLine(body.email, 254)?.toLowerCase() ?? null;
   const service = cleanSingleLine(body.service, 80);
   const pujaCategory = cleanSingleLine(body.pujaCategory ?? '', 100);
   const preferredDate = cleanSingleLine(body.preferredDate, 10);
   const message = cleanMessage(body.message);
 
-  if (!name || !email || !EMAIL_PATTERN.test(email) || service === null || pujaCategory === null || preferredDate === null || message === null) return null;
+  if (!name || !phone || !/^\+?[0-9][0-9 ()-]{7,28}[0-9]$/.test(phone) || email === null || (email && !EMAIL_PATTERN.test(email)) || service === null || pujaCategory === null || preferredDate === null || message === null) return null;
   if (service && !serviceSlugs.has(service)) return null;
   if (service === 'puja-rituals' && !validPujaCategories.has(pujaCategory)) return null;
   if (service !== 'puja-rituals' && pujaCategory) return null;
   if (preferredDate && !validDate(preferredDate)) return null;
-  return {name, email, service, pujaCategory, preferredDate, message};
+  return {name, phone, email, service, pujaCategory, preferredDate, message};
 }
 
 export async function POST(request: Request) {
