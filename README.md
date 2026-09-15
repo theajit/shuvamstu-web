@@ -18,10 +18,11 @@ A modern, mobile-first rebuild of Shuvamstu.
 
 ## Development
 ```bash
-npm install
+npm ci
+npm run typecheck
 npm run build
 npm run dev
 ```
 
-## Production TODO
-The enquiry UI is intentionally frontend-only. Connect it to an approved email/CRM/API endpoint before launch.
+## Enquiry delivery
+Set `ENQUIRY_WEBHOOK_URL` to an approved HTTPS endpoint that accepts the validated enquiry JSON. Optionally set `ENQUIRY_WEBHOOK_TOKEN` to send a bearer token. Without a configured endpoint, the API returns a service-unavailable response and does not claim that an enquiry was delivered.
