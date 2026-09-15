@@ -1,3 +1,3 @@
-import type {Metadata} from 'next'; import './globals.css'; import './puja.css';
+import type {Metadata} from 'next'; import './globals.css'; import './puja.css'; import './footer.css';
 export const metadata:Metadata={metadataBase:new URL('https://shuvamstu.com'),title:{default:'Shuvamstu | Puja, Rituals & Spiritual Services',template:'%s | Shuvamstu'},description:'Traditional puja, ceremonies, astrology, online rituals and devotional services.',openGraph:{title:'Shuvamstu',description:'Tradition, devotion and spiritual guidance — thoughtfully arranged.',type:'website'},robots:{index:true,follow:true}};
 export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><body>{children}</body></html>}

@@ -35,7 +35,7 @@ The PostgreSQL adapter begins a transaction, takes a provider-scoped advisory tr
 
 ## Administration roadmap
 
-Future authenticated admin endpoints and UI should manage providers, provider/service mappings, weekly availability, exceptions, booking confirmation/rejection, rescheduling, and cancellation. Audit trails and role-based authorization are required before exposing these operations.
+The protected `/admin` dashboard manages providers, provider/service mappings, weekly availability, date exceptions, and booking lifecycle statuses. Configure `ADMIN_PASSWORD` and a random `ADMIN_SESSION_SECRET` of at least 32 characters. Sessions use signed, HTTP-only, SameSite cookies and expire after 12 hours. Keep the admin URL behind HTTPS. A future multi-user implementation should add individual accounts, roles, and an audit trail.
 
 ## Remaining production requirements
 

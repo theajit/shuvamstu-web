@@ -29,3 +29,5 @@ Set `ENQUIRY_WEBHOOK_URL` to an approved HTTPS endpoint that accepts the validat
 
 ## Scheduling
 Scheduling uses PostgreSQL when `DATABASE_URL` is configured. Apply `db/migrations/001_scheduling.sql`, then add real providers, provider/service mappings, availability rules, and exceptions. Until then, availability is explicitly configuration-only and bookings fail closed. See `docs/SCHEDULING.md`.
+
+Scheduling administration is available at `/admin`. In Dokploy, set `DATABASE_URL`, `ADMIN_PASSWORD`, and a random `ADMIN_SESSION_SECRET` containing at least 32 characters, apply the migration, redeploy, and sign in. Use HTTPS in production.
