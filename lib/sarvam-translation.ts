@@ -2,7 +2,7 @@ import 'server-only';
 import {createHash} from 'node:crypto';
 import {SarvamAIClient} from 'sarvamai';
 
-export const translationLocales=['hi-IN','od-IN'] as const;
+export const translationLocales=['hi-IN','od-IN','sa-IN'] as const;
 export type TranslationLocale=(typeof translationLocales)[number];
 export type TranslatablePuja={name:string;shortDescription:string;fullDescription:string};
 export type TranslatedPuja={name:string;shortDescription:string;fullDescription:string};
