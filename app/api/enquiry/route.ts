@@ -1,6 +1,8 @@
 import {services} from '../../data/services';
 import {pujaCategories} from '../../data/puja-categories';
 import {enquiryPersistenceConfigured,storeEnquiry} from '../../../lib/enquiry-repository';
+import {rateLimited,sameRequestOrigin} from '../../../lib/request-protection';
+import {sendOperationalNotification} from '../../../lib/booking-notifications';
 
 const MAX_PAYLOAD_BYTES = 16_384;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -53,6 +55,8 @@ function validate(value: unknown): Enquiry | null {
 }
 
 export async function POST(request: Request) {
+  if(!sameRequestOrigin(request))return json('Invalid request origin.',403);
+  if(rateLimited(request,'enquiry',10,60*60*1000))return json('Too many requests. Please try again later.',429);
   if (!request.headers.get('content-type')?.toLowerCase().startsWith('application/json')) return json('Please submit the enquiry form using the supported format.', 415);
 
   const declaredLength = Number(request.headers.get('content-length') || 0);
@@ -87,6 +91,7 @@ export async function POST(request: Request) {
     delivered=response.ok;if(!response.ok)console.error(`[enquiry] Webhook returned ${response.status}.`);
   } catch(error) {console.error('[enquiry] Webhook delivery failed.',error)}
 
+  if(stored)await sendOperationalNotification('ENQUIRY_CREATED',{...enquiry,reference:stored.reference});
   if(!stored&&!delivered)return json('Enquiry submission is temporarily unavailable. Please try again later.',503);
   return Response.json({message:'Thank you. Your enquiry has been received.',reference:stored?.reference},{status:201,headers:{'Cache-Control':'no-store'}});
 }

@@ -1,0 +1,4 @@
+type Entry={count:number;resetAt:number};
+const buckets=new Map<string,Entry>();
+export function sameRequestOrigin(request:Request){const origin=request.headers.get('origin');if(!origin)return false;try{const originHost=new URL(origin).host.toLowerCase(),forwarded=request.headers.get('x-forwarded-host')?.split(',')[0]?.trim().toLowerCase(),host=request.headers.get('host')?.toLowerCase();return originHost===forwarded||originHost===host}catch{return false}}
+export function rateLimited(request:Request,scope:string,limit:number,windowMs:number){const forwarded=request.headers.get('x-forwarded-for')?.split(',')[0]?.trim(),key=`${scope}:${forwarded||'local'}`,now=Date.now(),entry=buckets.get(key);if(!entry||entry.resetAt<=now){buckets.set(key,{count:1,resetAt:now+windowMs});return false}entry.count++;return entry.count>limit}

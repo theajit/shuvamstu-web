@@ -1,6 +1,7 @@
 import {generateAvailableSlots, isValidLocalDate, LOCATION_MODES, schedulingServiceBySlug, zonedLocalToInstant, type LocationMode} from '../../../lib/scheduling';
 import {schedulingRepository} from '../../../lib/scheduling-repository';
 import {sendBookingNotification} from '../../../lib/booking-notifications';
+import {rateLimited,sameRequestOrigin} from '../../../lib/request-protection';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_PAYLOAD_BYTES = 20_000;
@@ -13,6 +14,8 @@ function text(value: unknown, maximum: number, required = false) {
 }
 
 export async function POST(request: Request) {
+  if(!sameRequestOrigin(request))return Response.json({message:'Invalid request origin.'},{status:403});
+  if(rateLimited(request,'booking',10,60*60*1000))return Response.json({message:'Too many booking attempts. Please try again later.'},{status:429});
   if (!request.headers.get('content-type')?.toLowerCase().startsWith('application/json')) return Response.json({message:'Use the supported booking form.'},{status:415});
   const declaredLength = Number(request.headers.get('content-length') || 0);
   if (declaredLength > MAX_PAYLOAD_BYTES) return Response.json({message:'The booking request is too large.'},{status:413});
@@ -47,10 +50,8 @@ export async function POST(request: Request) {
     if(!snapshot)return Response.json({message:'That provider is not available for this service.'},{status:400});
     const requestedStart=zonedLocalToInstant(localDate,localTime,snapshot.provider.timezone);
     const requestedEnd=new Date(requestedStart.getTime()+snapshot.providerService.durationMinutes*60_000);
-    if(service.bookingMode==='INSTANT'){
-      const available=generateAvailableSlots({provider:snapshot.provider,service:snapshot.providerService,date:localDate,locationMode:locationMode as LocationMode,rules:snapshot.rules,exceptions:snapshot.exceptions,existingBookings:snapshot.bookings});
-      if(!available.some(slot=>slot.start===requestedStart.toISOString()))return Response.json({message:'That time is no longer available. Please choose another.'},{status:409});
-    }
+    const available=generateAvailableSlots({provider:snapshot.provider,service:snapshot.providerService,date:localDate,locationMode:locationMode as LocationMode,rules:snapshot.rules,exceptions:snapshot.exceptions,existingBookings:snapshot.bookings});
+    if(!available.some(slot=>slot.start===requestedStart.toISOString()&&Date.parse(slot.start)>Date.now()))return Response.json({message:'That time is no longer available. Please choose another.'},{status:409});
     const stored=await schedulingRepository.createBookingAtomically({providerId,serviceSlug:serviceSlug!,locationMode:locationMode as LocationMode,customerName:customerName!,customerEmail:customerEmail!,customerPhone:customerPhone!,venue:venue!,timezone:snapshot.provider.timezone,localDate:localDate!,localTime:localTime!,requestedStart:requestedStart.toISOString(),requestedEnd:requestedEnd.toISOString(),customerMessage:customerMessage!});
     const manageUrl=new URL('/booking/manage',process.env.PUBLIC_SITE_URL||request.url);manageUrl.searchParams.set('reference',stored.reference);manageUrl.searchParams.set('token',stored.manageToken);
     const result={reference:stored.reference,status:stored.status,service:stored.serviceSlug,requestedStart:stored.requestedStart,requestedEnd:stored.requestedEnd,manageUrl:manageUrl.toString(),customerEmail};
