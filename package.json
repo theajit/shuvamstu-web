@@ -20,7 +20,8 @@
     "postgres": "3.4.9",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "resend": "^6.28.1"
+    "resend": "^6.28.1",
+    "sarvamai": "1.1.8-alpha.5"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
