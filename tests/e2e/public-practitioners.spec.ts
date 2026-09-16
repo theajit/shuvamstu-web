@@ -1,9 +1,9 @@
 import {expect, test} from '@playwright/test';
 
 const directories = [
-  {path: '/pandits', heading: 'Find a Pandit for your sacred occasion', singular: 'Pandit', service: 'puja-rituals', excluded: ['Astrologer', 'Numerologist']},
-  {path: '/astrologers', heading: 'Speak with an Astrologer', singular: 'Astrologer', service: 'astrology', excluded: ['Pandit', 'Numerologist']},
-  {path: '/numerologists', heading: 'Consult a Numerologist', singular: 'Numerologist', service: 'numerology', excluded: ['Pandit', 'Astrologer']},
+  {path: '/pandits', heading: 'Find a Pandit for your sacred occasion', singular: 'Pandit', service: 'puja-rituals', excluded: ['Astrologer', 'Numerologist'],consultation:false},
+  {path: '/astrologers', heading: 'Speak with an Astrologer', singular: 'Astrologer', service: 'astrology', excluded: ['Pandit', 'Numerologist'],consultation:true},
+  {path: '/numerologists', heading: 'Consult a Numerologist', singular: 'Numerologist', service: 'numerology', excluded: ['Pandit', 'Astrologer'],consultation:true},
 ] as const;
 
 for (const directory of directories) {
@@ -11,8 +11,8 @@ for (const directory of directories) {
     await page.goto(directory.path);
 
     await expect(page.getByRole('heading', {level: 1, name: directory.heading})).toBeVisible();
-    const requestLink = page.getByRole('link', {name: `Request a ${directory.singular}`}).first();
-    await expect(requestLink).toHaveAttribute('href', `/enquiry?service=${directory.service}`);
+    const requestLink = page.getByRole('link', {name: directory.consultation?'Book a consultation':`Request a ${directory.singular}`}).first();
+    await expect(requestLink).toHaveAttribute('href', directory.consultation?`/book/consultation?service=${directory.service}`:`/enquiry?service=${directory.service}`);
     await expect(page.getByRole('heading', {name: new RegExp(`Published ${directory.singular.toLowerCase()}`)})).toBeVisible();
 
     for (const otherType of directory.excluded) {
@@ -20,4 +20,3 @@ for (const directory of directories) {
     }
   });
 }
-

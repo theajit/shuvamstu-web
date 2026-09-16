@@ -20,6 +20,6 @@ export async function GET(request: Request) {
 
   const snapshots = await schedulingRepository.getAvailabilitySnapshots(serviceSlug, providerId);
   const providers = snapshots.map(snapshot => ({id:snapshot.provider.id,name:snapshot.provider.name,timezone:snapshot.provider.timezone}));
-  const slots = snapshots.flatMap(snapshot => generateAvailableSlots({provider:snapshot.provider,service:snapshot.providerService,date,locationMode:(locationMode || service.allowedLocationModes[0]) as LocationMode,rules:snapshot.rules,exceptions:snapshot.exceptions,existingBookings:snapshot.bookings}).map(slot => ({...slot,provider:{id:snapshot.provider.id,name:snapshot.provider.name}})));
+  const slots = snapshots.flatMap(snapshot => generateAvailableSlots({provider:snapshot.provider,service:snapshot.providerService,date,locationMode:(locationMode || service.allowedLocationModes[0]) as LocationMode,rules:snapshot.rules,exceptions:snapshot.exceptions,existingBookings:snapshot.bookings}).filter(slot=>Date.parse(slot.start)>Date.now()).map(slot => ({...slot,provider:{id:snapshot.provider.id,name:snapshot.provider.name}})));
   return Response.json({availabilityKind:'LIVE',live:true,providers,slots,service:serviceSlug,date}, {headers:{'Cache-Control':'no-store'}});
 }
