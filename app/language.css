@@ -1,0 +1,7 @@
+.brand img{width:280px}
+.desktop-links{gap:14px;font-size:12px}
+.language-toggle{display:inline-flex;align-items:center;padding:3px;border:1px solid var(--line);border-radius:999px;background:#fff}
+.language-toggle button{border:0;border-radius:999px;background:transparent;color:var(--muted);padding:6px 9px;font:600 11px Poppins,Arial,sans-serif;cursor:pointer}
+.language-toggle button[aria-pressed="true"]{background:var(--orange);color:#fff}
+.mobile-menu .language-toggle{margin:10px 0}
+.mobile-menu .language-toggle button{display:inline-block;padding:7px}

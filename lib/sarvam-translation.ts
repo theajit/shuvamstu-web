@@ -33,7 +33,7 @@ function chunks(input:string,maxLength=1800){
   return result;
 }
 
-async function translateText(input:string,target_language_code:TranslationLocale){
+export async function translateText(input:string,target_language_code:TranslationLocale){
   if(!input.trim())return '';
   const translated:string[]=[];
   for(const part of chunks(input)){
